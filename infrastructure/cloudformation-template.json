@@ -1,0 +1,323 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Webdev Backend Stack.  Requires eu-west-1",
+  "Parameters": {
+    "KeyName": {
+      "Type": "String",
+      "Default": "laptop",
+      "Description": "Key Name"
+    },
+    "VpcId": {
+      "Type": "String",
+      "Default": "vpc-f3f95896",
+      "Description": "VPC Id"
+    },
+    "DbPassword": {
+      "Type": "String",
+      "Description": "DB Password"
+    }
+  },
+  "Resources": {
+    "WebdevEc2Backend": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": "ami-db1688a2",
+        "IamInstanceProfile": "WebdevIamProfileBackend",
+        "InstanceType": "t2.micro",
+        "KeyName": {
+          "Ref": "KeyName"
+        },
+        "NetworkInterfaces": [
+          {
+            "DeviceIndex": 0,
+            "GroupSet": [
+              {
+                "Ref": "WebdevEc2SecurityGroup"
+              }
+            ],
+            "AssociatePublicIpAddress": "true"
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash -xe\n",
+                "yum install -y aws-cfn-bootstrap\n",
+                "# Install the files and packages from the metadata\n",
+                "/opt/aws/bin/cfn-init -v ",
+                "         --stack ",
+                {
+                  "Ref": "AWS::StackName"
+                },
+                "         --resource WebdevEc2Backend ",
+                "         --configsets InstallAndRun ",
+                "         --region ",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "\n"
+              ]
+            ]
+          }
+        }
+      },
+      "Metadata": {
+        "Comment1": "Install Java 8 and set as default",
+        "AWS::CloudFormation::Init": {
+          "configSets": {
+            "InstallAndRun": [
+              "Install",
+              "Configure"
+            ]
+          },
+          "Install": {
+            "packages": {
+              "yum": {
+                "java-1.8.0-openjdk": {}
+              }
+            }
+          },
+          "Configure": {
+            "commands": {
+              "01_set_java8_as_default": {
+                "command": "sudo update-alternatives --set java java-1.8.0-openjdk.x86_64"
+              },
+              "02_iptables_forward_8080_to_80": {
+                "command": "sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 8080"
+              }
+            }
+          }
+        }
+      }
+    },
+    "WebdevEc2SecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "WebdevEc2SecurityGroup",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "8081",
+            "ToPort": "8081",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "WebdevIamProfileBackend": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          {
+            "Ref": "WebdevIamroleS3Readwrite"
+          }
+        ],
+        "InstanceProfileName": "WebdevIamProfileBackend"
+      }
+    },
+    "WebdevIamroleS3Readwrite": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "root",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:DeleteObject",
+                    "s3:ListBucket"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::GetAtt": [
+                        "WebdevS3Bucket",
+                        "Arn"
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "/",
+                        [
+                          {
+                            "Fn::GetAtt": [
+                              "WebdevS3Bucket",
+                              "Arn"
+                            ]
+                          },
+                          "*"
+                        ]
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "WebdevS3Bucket": {
+      "Type": "AWS::S3::Bucket"
+    },
+    "WebdevS3BucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "WebdevS3Bucket"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "PublicReadGetObject",
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": [
+                "s3:GetObject"
+              ],
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "/",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "WebdevS3Bucket",
+                          "Arn"
+                        ]
+                      },
+                      "*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "WebdevDb": {
+      "Type": "AWS::RDS::DBInstance",
+      "Properties": {
+        "AllocatedStorage": "20",
+        "DBInstanceClass": "db.t2.micro",
+        "DBInstanceIdentifier": "webdev-db",
+        "DBName": "webdev",
+        "Engine": "mysql",
+        "MasterUsername": "root",
+        "MasterUserPassword": {
+          "Ref": "DbPassword"
+        },
+        "DBSecurityGroups": [
+          {
+            "Ref": "WebdevDbSecurityGroup"
+          }
+        ]
+      }
+    },
+    "WebdevDbSecurityGroup": {
+      "Type": "AWS::RDS::DBSecurityGroup",
+      "Properties": {
+        "DBSecurityGroupIngress": {
+          "EC2SecurityGroupId": {
+            "Fn::GetAtt": [
+              "WebdevEc2SecurityGroup",
+              "GroupId"
+            ]
+          }
+        },
+        "GroupDescription": "WebdevDbSecurityGroup"
+      }
+    },
+    "WebdevBackendElasticIP": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "InstanceId": {
+          "Ref": "WebdevEc2Backend"
+        },
+        "Domain": "vpc"
+      }
+    }
+  },
+  "Outputs": {
+    "S3BucketName": {
+      "Value": {
+        "Ref": "WebdevS3Bucket"
+      }
+    },
+    "BackendIpAddress": {
+      "Value": {
+        "Ref": "WebdevBackendElasticIP"
+      }
+    },
+    "PublicDns": {
+      "Value": {
+        "Fn::GetAtt": [
+          "WebdevEc2Backend",
+          "PublicDnsName"
+        ]
+      }
+    },
+    "RdsEndpoint": {
+      "Value": {
+        "Fn::Join": [
+          ":",
+          [
+            {
+              "Fn::GetAtt": [
+                "WebdevDb",
+                "Endpoint.Address"
+              ]
+            },
+            {
+              "Fn::GetAtt": [
+                "WebdevDb",
+                "Endpoint.Port"
+              ]
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

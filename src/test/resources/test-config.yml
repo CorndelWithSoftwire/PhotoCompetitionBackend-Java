@@ -1,0 +1,37 @@
+# Random ports on startup
+server:
+  applicationConnectors:
+  - type: http
+    port: 0
+  adminConnectors:
+  - type: http
+    port: 0
+
+logging:
+  level: INFO
+  loggers:
+    org.softwire.training: DEBUG
+
+database:
+  driverClass: org.h2.Driver
+  user: root
+  password: mysql
+
+  url: jdbc:h2:mem:testDb;MODE=MYSQL
+
+  properties:
+    charSet: UTF-8
+
+  maxWaitForConnection: 1s
+  validationQuery: "/* PhotoCompetition Health Check */ SELECT 1"
+  minSize: 8
+  maxSize: 32
+  checkConnectionWhileIdle: true
+  evictionInterval: 10s
+  minIdleTime: 1 minute
+
+rawImages:
+  s3Bucket: unused
+
+adminPassword: password
+moderatorPassword: moderator

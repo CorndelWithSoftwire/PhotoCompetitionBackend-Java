@@ -1,0 +1,28 @@
+logging:
+  level: INFO
+  loggers:
+    org.softwire.training: DEBUG
+
+database:
+  driverClass: com.mysql.cj.jdbc.Driver
+  user: root
+  password: mysql
+
+  url: jdbc:mysql://localhost/webdev?verifyServerCertificate=false&useSSL=true&serverTimezone=UTC
+
+  properties:
+    charSet: UTF-8
+
+  maxWaitForConnection: 1s
+  validationQuery: "/* PhotoCompetition Health Check */ SELECT 1"
+  minSize: 8
+  maxSize: 32
+  checkConnectionWhileIdle: true
+  evictionInterval: 10s
+  minIdleTime: 1 minute
+
+rawImages:
+  s3Bucket: webdev-webdevs3bucket-16ufyhtxjw06m
+
+moderatorPassword: moderator
+adminPassword: admin
