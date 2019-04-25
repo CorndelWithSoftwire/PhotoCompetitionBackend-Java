@@ -106,8 +106,11 @@ public class App extends Application<Config> {
         environment.admin().setSecurityHandler(new AdminConstraintSecurityHandler(principalRepository.getAdminPrincipal()));
 
         // We don't to cause problems for anyone trying to access this with an xhr from localhost.
-        final ContainerResponseFilter accessControlAllowAnyOrigin = (requestContext, responseContext) ->
-                responseContext.getHeaders().add("Access-Control-Allow-Origin", "*");
+        final ContainerResponseFilter accessControlAllowAnyOrigin = (requestContext, responseContext) -> {
+            responseContext.getHeaders().add("Access-Control-Allow-Origin", "*");
+            responseContext.getHeaders().add("Access-Control-Allow-Methods", "OPTIONS, GET, POST, DELETE");
+            responseContext.getHeaders().add("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Accept, Origin, Authorization");
+        };
         environment.jersey().register(accessControlAllowAnyOrigin);
 
         // Log request payloads all the time
